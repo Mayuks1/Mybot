@@ -1,7 +1,6 @@
 {
   "name": "mcfa-bot",
   "version": "1.0.0",
-  "description": "A simple Discord bot that manages MCFA accounts",
   "main": "index.js",
   "type": "module",
   "dependencies": {
