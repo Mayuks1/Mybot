@@ -4,7 +4,27 @@ import fs from "fs";
 import path from "path";
 
 const ADMIN_ID = "934670194096345118";
+const GEN_CHANNEL_ID = "1430915160373203136";
+const VOUCH_CHANNEL_ID = "1430914635913101312";
 
+const cooldowns = {}; // userId -> timestamp end
+const filePath = path.join(process.cwd(), "accounts.json");
+
+// ---------- helpers ----------
+function loadData() {
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify({ mcfa: [], banned: [], xbox: [] }, null, 2)
+    );
+  }
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+}
+function saveData(d) {
+  fs.writeFileSync(filePath, JSON.stringify(d, null, 2));
+}
+
+// ---------- client ----------
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -13,187 +33,175 @@ const client = new Client({
   ],
 });
 
-client.once("ready", () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-});
+client.once("ready", () => console.log(`✅ Logged in as ${client.user.tag}`));
 
-// location of your data file
-const filePath = path.join(process.cwd(), "accounts.json");
-
-// ensure data structure exists
-function loadData() {
-  if (!fs.existsSync(filePath)) {
-    const init = { normal: [], banned: [] };
-    fs.writeFileSync(filePath, JSON.stringify(init, null, 2));
-  }
-  return JSON.parse(fs.readFileSync(filePath, "utf8"));
-}
-function saveData(data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-}
-
+// ------------------------------------------------------
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
   const content = message.content.trim();
   const data = loadData();
 
-  // ----------------------------------------------------
-  // USER HELP COMMAND
-  // ----------------------------------------------------
+  // USER HELP
   if (content === "$help" || content === "$mcfa help") {
-    const embed = new EmbedBuilder()
+    const e = new EmbedBuilder()
       .setColor("#00FFAA")
-      .setTitle("🧭 LoxY Hub User Help")
+      .setTitle("💬 LoxY Hub — User Help")
       .setDescription(
-        "Here are the commands you can use:\n\n" +
-          "💠 **$mcfa gen** → Get a free MCFA account (everyone can use)\n" +
-          "💠 **$mcfa banned** → Get a free *banned* Minecraft account\n" +
-          "💠 **$stock** → See how many accounts are left\n" +
-          "💠 **$help** → Show this help message"
-      )
-      .setFooter({ text: "LoxY Hub • Support your community ❤️" });
-    return message.reply({ embeds: [embed] });
+        "Commands everyone can use:\n" +
+          "• `$mcfa gen` – get free MCFA account\n" +
+          "• `$mcfa banned` – get banned Minecraft account\n" +
+          "• `$mcfa xbox` – get Xbox account\n" +
+          "• `$stock` – see stock\n" +
+          "• Type `legit` in vouch channel after generating to remove cool‑down 💚"
+      );
+    return message.reply({ embeds: [e] });
   }
 
-  // ----------------------------------------------------
-  // ADMIN HELP COMMAND
-  // ----------------------------------------------------
+  // ADMIN HELP
   if (content === "$adminhelp") {
     if (message.author.id !== ADMIN_ID)
-      return message.reply("🚫 Only admin can use this command.");
-
-    const embed = new EmbedBuilder()
+      return message.reply("🚫 only admin.");
+    const e = new EmbedBuilder()
       .setColor("#ff9933")
-      .setTitle("🛠 LoxY Hub Admin Help")
+      .setTitle("🛠 LoxY Hub — Admin Help")
       .setDescription(
-        "Admin only commands:\n\n" +
-          "🔧 **$mcfa add email password** → Add normal account\n" +
-          "🔧 **$mcfa add Minecraft_banned email password** → Add banned account\n" +
-          "🗑 **$mcfa reset banned** → Reset all banned accounts\n" +
-          "🗑 **$mcfa reset mcfa** → Reset all normal accounts"
-      )
-      .setFooter({ text: "Only ADMIN_ID can run these." });
-    return message.reply({ embeds: [embed] });
-  }
-
-  // ----------------------------------------------------
-  // STOCK SHOW
-  // ----------------------------------------------------
-  if (content === "$stock") {
-    const total = data.normal.length;
-    const banned = data.banned.length;
-    const embed = new EmbedBuilder()
-      .setColor("#0099ff")
-      .setTitle("📦 LoxY Hub Stock")
-      .setDescription(
-        `🧮 **Normal accounts:** ${total}\n` +
-          `🚫 **Banned accounts:** ${banned}\n\n` +
-          "Use **$mcfa gen** or **$mcfa banned** to get one!"
+        "`$mcfa add mcfa email password` → add normal account\n" +
+          "`$mcfa add banned email password` → add banned account\n" +
+          "`$mcfa add xbox email password` → add Xbox account\n" +
+          "`$mcfa reset mcfa` / `$mcfa reset banned` / `$mcfa reset xbox` → clear lists"
       );
-    return message.reply({ embeds: [embed] });
+    return message.reply({ embeds: [e] });
   }
 
-  // ----------------------------------------------------
-  // ANYONE: GENERATE NORMAL ACCOUNT
-  // ----------------------------------------------------
-  if (content === "$mcfa gen") {
-    const account = data.normal.shift();
-    if (!account)
-      return message.reply("❌ No normal accounts available!");
+  // STOCK
+  if (content === "$stock") {
+    const e = new EmbedBuilder()
+      .setColor("#0099ff")
+      .setTitle("📦 Stock")
+      .setDescription(
+        `🌀 MCFA: ${data.mcfa.length}\n🚫 Banned: ${data.banned.length}\n🎮 Xbox: ${data.xbox.length}`
+      );
+    return message.reply({ embeds: [e] });
+  }
 
+  // ---------------------------------------------------
+  // GENERATE FUNCTIONS (anyone)
+  async function generate(poolName, color, title, note) {
+    if (message.channelId !== GEN_CHANNEL_ID)
+      return message.reply("❌ Use this in generator channel only.");
+    const id = message.author.id;
+    const now = Date.now();
+    if (cooldowns[id] && cooldowns[id] > now) {
+      const min = Math.ceil((cooldowns[id] - now) / 60000);
+      return message.reply(
+        `⏳ Please vouch first! Try again after ${min} minutes.`
+      );
+    }
+    const list = data[poolName];
+    const acc = list.shift();
+    if (!acc) return message.reply(`❌ No ${poolName} accounts available.`);
     saveData(data);
 
-    const embed = new EmbedBuilder()
-      .setColor("#00FFAA")
-      .setTitle("🎁 Your Free MCFA Account")
+    const dm = new EmbedBuilder()
+      .setColor(color)
+      .setTitle(title)
       .setDescription(
-        `Hey **${message.author.username}**, here’s your account:\n\n` +
-          `> 📧 **Email:** \`${account.email}\`\n` +
-          `> 🔐 **Password:** \`${account.password}\`\n\n` +
-          "Enjoy! Remember to keep it private and use responsibly."
+        `Hey **${message.author.username}**, here’s your ${poolName} account:\n\n` +
+          `📧 **Email:** \`${acc.email}\`\n🔐 **Password:** \`${acc.password}\`\n\n` +
+          note +
+          "\n\n➡️ Go to the vouch channel and say **legit** to remove your 30 min cooldown."
       )
-      .setFooter({ text: "Generated by LoxY Hub" });
+      .setFooter({ text: "LoxY Hub • Enjoy your account" });
 
-    await message.author.send({ embeds: [embed] }).catch(() =>
-      message.reply("📬 Couldn’t DM you — enable DMs!")
-    );
-    return message.reply("📩 Check your DMs for the account details!");
+    await message.author.send({ embeds: [dm] }).catch(() => {});
+    await message.reply("📬 Check DMs for account details!");
+    cooldowns[id] = now + 30 * 60 * 1000;
   }
 
-  // ----------------------------------------------------
-  // ANYONE: GENERATE BANNED ACCOUNT
-  // ----------------------------------------------------
-  if (content === "$mcfa banned") {
-    const account = data.banned.shift();
-    if (!account)
-      return message.reply("❌ No banned accounts available!");
-    saveData(data);
-
-    const embed = new EmbedBuilder()
-      .setColor("#ff5555")
-      .setTitle("🎮 Banned Minecraft Account")
-      .setDescription(
-        `Hey **${message.author.username}**, here’s a banned account:\n\n` +
-          `> 📧 **Email:** \`${account.email}\`\n` +
-          `> 🔐 **Password:** \`${account.password}\`\n\n` +
-          "These are for testing or practice only — expect them to be banned on official Minecraft servers."
-      )
-      .setFooter({ text: "Provided by LoxY Hub • use wisely" });
-
-    await message.author.send({ embeds: [embed] }).catch(() =>
-      message.reply("📬 Couldn’t DM you — enable DMs!")
+  if (content === "$mcfa gen")
+    return generate(
+      "mcfa",
+      "#00FFAA",
+      "🎁 Your MCFA Account",
+      "Please keep it private and respect our community rules."
     );
-    return message.reply("📩 Check your DMs for the banned account!");
-  }
+  if (content === "$mcfa banned")
+    return generate(
+      "banned",
+      "#ff5555",
+      "🚫 Banned Minecraft Account",
+      "These are banned accounts, use for testing only."
+    );
+  if (content === "$mcfa xbox")
+    return generate(
+      "xbox",
+      "#00a1ff",
+      "🎮 Xbox Account",
+      "Fresh Xbox combo for practice and login tests."
+    );
 
-  // ----------------------------------------------------
-  // ADMIN: ADD NORMAL ACCOUNT
-  // ----------------------------------------------------
+  // ---------------------------------------------------
+  // ADMIN: ADD
   if (content.startsWith("$mcfa add ")) {
     if (message.author.id !== ADMIN_ID)
-      return message.reply("🚫 Only admin can add accounts.");
-
+      return message.reply("🚫 only admin.");
     const args = content.split(" ");
-    if (args.length < 4)
+    if (args.length < 5)
       return message.reply(
-        "Usage: `$mcfa add email password` or `$mcfa add Minecraft_banned email password`"
+        "Usage: `$mcfa add mcfa|banned|xbox email password`"
       );
-
-    // distinguish between normal and banned
-    if (args[2].toLowerCase() === "minecraft_banned") {
-      const email = args[3];
-      const password = args[4];
-      data.banned.push({ email, password });
-      saveData(data);
-      return message.reply(
-        `✅ Added banned account: **${email}** to banned list.`
-      );
-    } else {
-      const email = args[2];
-      const password = args[3];
-      data.normal.push({ email, password });
-      saveData(data);
-      return message.reply(`✅ Added normal account for **${email}**`);
-    }
+    const pool = args[2].toLowerCase();
+    const email = args[3];
+    const pass = args[4];
+    if (!["mcfa", "banned", "xbox"].includes(pool))
+      return message.reply("Pool must be mcfa, banned or xbox.");
+    data[pool].push({ email, password: pass });
+    saveData(data);
+    return message.reply(`✅ Added ${pool} account for ${email}`);
   }
 
-  // ----------------------------------------------------
-  // ADMIN: RESET LISTS
-  // ----------------------------------------------------
-  if (content === "$mcfa reset banned") {
+  // ADMIN: RESET
+  if (content.startsWith("$mcfa reset ")) {
     if (message.author.id !== ADMIN_ID)
-      return message.reply("🚫 Only admin can reset banned accounts.");
-    data.banned = [];
+      return message.reply("🚫 only admin.");
+    const pool = content.split(" ")[2]?.toLowerCase();
+    if (!["mcfa", "banned", "xbox"].includes(pool))
+      return message.reply("Pool must be mcfa, banned or xbox.");
+    data[pool] = [];
     saveData(data);
-    return message.reply("🧹 All banned accounts cleared!");
+    return message.reply(`🧹 Reset all ${pool} accounts.`);
+  }
+});
+
+// ------------------------------------------------------
+//  VOUCH MONITOR — look for “legit” in vouch channel
+// ------------------------------------------------------
+client.on("messageCreate", async (message) => {
+  if (message.author.bot) return;
+  if (message.channelId !== VOUCH_CHANNEL_ID) return;
+  const text = message.content.toLowerCase();
+  if (!text.includes("legit")) return;
+
+  try {
+    await message.react("✅");
+  } catch (e) {
+    console.log("React fail:", e.message);
   }
 
-  if (content === "$mcfa reset mcfa") {
-    if (message.author.id !== ADMIN_ID)
-      return message.reply("🚫 Only admin can reset normal accounts.");
-    data.normal = [];
-    saveData(data);
-    return message.reply("🧹 All normal accounts cleared!");
+  const uid = message.author.id;
+  if (cooldowns[uid]) {
+    delete cooldowns[uid];
+    const e = new EmbedBuilder()
+      .setColor("#00FFAA")
+      .setTitle("🙏 Thanks for Vouching!")
+      .setDescription(
+        `We saw your vouch, **${message.author.username}** ✅\n` +
+          "Your cool‑down has been removed. You can use `$mcfa gen` again.\n\n" +
+          "Appreciate your help keeping LoxY Hub trusted 💚"
+      )
+      .setFooter({ text: "LoxY Hub • Community first" })
+      .setTimestamp();
+    await message.author.send({ embeds: [e] }).catch(() => {});
   }
 });
 
