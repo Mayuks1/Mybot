@@ -6,6 +6,7 @@ import path from "path";
 const ADMIN_ID = "934670194096345118";
 const GEN_CHANNEL_ID = "1430915160373203136";
 const VOUCH_CHANNEL_ID = "1430914635913101312";
+const VOUCH_CHANNEL_LINK = "https://discord.com/channels/1338187650225537044/1430914635913101312";
 const EMBED_IMAGE_URL = "https://i.ibb.co/JWkZx3K/image.png";
 
 const cooldowns = {}; // userId -> timestamp end
@@ -47,38 +48,38 @@ client.on("messageCreate", async (message) => {
   if (content === "$help" || content === "$mcfa help") {
     const e = new EmbedBuilder()
       .setColor("#00FFAA")
-      .setTitle("Proxy Terminal Ind — User Help")
+      .setTitle("👋 Proxy Terminal Ind — User Help")
       .setDescription(
         "Here are the commands available to everyone. Use these in the generator channel."
       )
       .addFields(
         {
-          name: "🌀 Get MCFA Account",
-          value: "> `$mcfa gen`",
+          name: "⛏️ Get MCFA Account",
+          value: "➡️ `$mcfa gen`",
           inline: true,
         },
         {
           name: "💎 Get Bedrock Account",
-          value: "> `$mcfa bedrock`",
+          value: "➡️ `$mcfa bedrock`",
           inline: true,
         },
         { name: "\u200B", value: "\u200B" }, // Spacer
         {
           name: "🚫 Get Banned Account",
-          value: "> `$mcfa banned`",
+          value: "➡️ `$mcfa banned`",
           inline: true,
         },
         {
           name: "🎮 Get Xbox Account",
-          value: "> `$mcfa xbox`",
+          value: "➡️ `$mcfa xbox`",
           inline: true,
         },
         { name: "\u200B", value: "\u200B" }, // Spacer
-        { name: "📦 Check Stock", value: "> `$stock`" },
+        { name: "📦 Check Stock", value: "➡️ `$stock`" },
         {
-          name: "💚 Remove Cooldown",
+          name: "✅ Remove Cooldown",
           value:
-            "> Type `legit` in the vouch channel after generating to remove your cool-down!",
+            `> Type \`legit\` in the <#${VOUCH_CHANNEL_ID}> channel after generating to remove your cool-down!`,
         }
       )
       .setImage(EMBED_IMAGE_URL)
@@ -90,10 +91,10 @@ client.on("messageCreate", async (message) => {
   // ADMIN HELP
   if (content === "$adminhelp") {
     if (message.author.id !== ADMIN_ID)
-      return message.reply("🚫 Only the admin can use this command.");
+      return message.reply("🔴 Only the admin can use this command.");
     const e = new EmbedBuilder()
       .setColor("#ff9933")
-      .setTitle("Proxy Terminal Ind — Admin Help")
+      .setTitle("🛠️ Proxy Terminal Ind — Admin Help")
       .setDescription("Manage the account generator stock with these commands.")
       .addFields(
         {
@@ -107,7 +108,7 @@ client.on("messageCreate", async (message) => {
             "`$mcfa reset [type]`\n*Example: `$mcfa reset xbox`*",
         },
         {
-            name: "Valid Types",
+            name: "✅ Valid Types",
             value: "`mcfa`, `banned`, `xbox`, `bedrock`"
         }
       )
@@ -124,7 +125,7 @@ client.on("messageCreate", async (message) => {
       .setTitle("📦 Account Stock")
       .setDescription("Here is the current availability of all account types.")
       .addFields(
-        { name: "🌀 MCFA", value: `**${data.mcfa.length}** accounts`, inline: true },
+        { name: "⛏️ MCFA", value: `**${data.mcfa.length}** accounts`, inline: true },
         { name: "💎 Bedrock", value: `**${data.bedrock.length}** accounts`, inline: true },
         { name: "🚫 Banned", value: `**${data.banned.length}** accounts`, inline: true },
         { name: "🎮 Xbox", value: `**${data.xbox.length}** accounts`, inline: true }
@@ -139,7 +140,7 @@ client.on("messageCreate", async (message) => {
   // GENERATE FUNCTIONS (anyone)
   async function generate(poolName, color, title, note) {
     if (message.channelId !== GEN_CHANNEL_ID)
-      return message.reply("❌ Use this in the designated generator channel only.");
+      return message.reply("🔴 Use this in the designated generator channel only.");
     const id = message.author.id;
     const now = Date.now();
     if (cooldowns[id] && cooldowns[id] > now) {
@@ -150,37 +151,40 @@ client.on("messageCreate", async (message) => {
     }
     const list = data[poolName];
     const acc = list.shift();
-    if (!acc) return message.reply(`❌ Sorry, there are no **${poolName}** accounts available right now.`);
+    if (!acc) return message.reply(`🔴 Sorry, there are no **${poolName}** accounts available right now.`);
     saveData(data);
 
     const dm = new EmbedBuilder()
       .setColor(color)
       .setTitle(title)
       .setDescription(
-        `Hey **${message.author.username}**, here are your account details:`
+        `👋 Hey **${message.author.username}**, here are your account details:`
       )
       .addFields(
         { name: "📧 Email", value: `\`\`\`${acc.email}\`\`\`` },
         { name: "🔐 Password", value: `\`\`\`${acc.password}\`\`\`` },
         { name: "ℹ️ Important Note", value: note },
         {
-          name: "💚 Remove Cooldown",
+          name: "✅ Remove Cooldown",
           value:
-            "Go to the vouch channel and simply type **legit** to remove your 30-minute cooldown.",
+            `Go to the [**Vouch Channel by clicking here**](${VOUCH_CHANNEL_LINK}) and simply type **legit** to remove your 30-minute cooldown.`,
         }
       )
       .setImage(EMBED_IMAGE_URL)
       .setFooter({ text: "Proxy Terminal Ind • Enjoy your account" })
       .setTimestamp();
 
-    await message.author.send({ embeds: [dm] }).catch(() => {
-        // If DM fails, we should add the account back to the stock
+    try {
+        await message.author.send({ embeds: [dm] });
+        await message.reply("📬 Success! I've sent the account details to your DMs!");
+        cooldowns[id] = now + 30 * 60 * 1000;
+    } catch (error) {
+        // If DM fails, add the account back to the stock
         list.unshift(acc);
         saveData(data);
-        return message.reply("❌ I couldn't send you a DM! Please enable your DMs and try again.");
-    });
-    await message.reply("📬 Success! I've sent the account details to your DMs!");
-    cooldowns[id] = now + 30 * 60 * 1000;
+        console.log(`Failed to DM user ${message.author.id}`);
+        await message.reply("🔴 I couldn't send you a DM! Please enable your DMs from server members and try again.");
+    }
   }
 
   if (content === "$mcfa gen")
@@ -207,7 +211,7 @@ client.on("messageCreate", async (message) => {
   if (content === "$mcfa bedrock")
     return generate(
       "bedrock",
-      "#28a745", // A nice green color for Bedrock
+      "#28a745",
       "💎 Bedrock Account",
       "Enjoy your Bedrock account. Please do not change the credentials."
     );
@@ -216,7 +220,7 @@ client.on("messageCreate", async (message) => {
   // ADMIN: ADD
   if (content.startsWith("$mcfa add ")) {
     if (message.author.id !== ADMIN_ID)
-      return message.reply("🚫 Only the admin can use this command.");
+      return message.reply("🔴 Only the admin can use this command.");
     const args = content.split(" ");
     if (args.length < 5)
       return message.reply(
@@ -224,9 +228,9 @@ client.on("messageCreate", async (message) => {
       );
     const pool = args[2].toLowerCase();
     const email = args[3];
-    const pass = args[4];
+    const pass = args.slice(4).join(' '); // Allow passwords with spaces
     if (!validPools.includes(pool))
-      return message.reply(`Invalid type. Must be one of: ${validPools.join(", ")}.`);
+      return message.reply(`🔴 Invalid type. Must be one of: ${validPools.join(", ")}.`);
     data[pool].push({ email, password: pass });
     saveData(data);
     return message.reply(`✅ Successfully added a **${pool}** account for \`${email}\``);
@@ -235,10 +239,10 @@ client.on("messageCreate", async (message) => {
   // ADMIN: RESET
   if (content.startsWith("$mcfa reset ")) {
     if (message.author.id !== ADMIN_ID)
-      return message.reply("🚫 Only the admin can use this command.");
+      return message.reply("🔴 Only the admin can use this command.");
     const pool = content.split(" ")[2]?.toLowerCase();
     if (!validPools.includes(pool))
-      return message.reply(`Invalid type. Must be one of: ${validPools.join(", ")}.`);
+      return message.reply(`🔴 Invalid type. Must be one of: ${validPools.join(", ")}.`);
     data[pool] = [];
     saveData(data);
     return message.reply(`🧹 Successfully reset all **${pool}** accounts.`);
@@ -265,15 +269,14 @@ client.on("messageCreate", async (message) => {
         .setColor("#00FFAA")
         .setTitle("🙏 Thanks for Vouching!")
         .setDescription(
-          `We saw your vouch, **${message.author.username}** ✅\n\n` +
+          `We saw your vouch, **${message.author.username}**!\n\n` +
           "Your cool-down has been **removed**. You can use the generator again now!\n\n" +
-          "Appreciate your help keeping the community trusted 💚"
+          "Appreciate your help keeping the community trusted ✅"
         )
         .setImage(EMBED_IMAGE_URL)
         .setFooter({ text: "Proxy Terminal Ind • Community first" })
         .setTimestamp();
       
-      // Try to DM the user, but don't worry if it fails.
       await message.author.send({ embeds: [e] }).catch(() => {});
     }
   }
