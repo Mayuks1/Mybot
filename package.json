@@ -1,15 +1,14 @@
 {
   "name": "naughty-bot-jjm",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "discord.js": "^14.15.2",
-    "dotenv": "^16.4.5",
-    "node-fetch": "^3.3.2"
+    "discord.js": "^14.16.0",
+    "dotenv": "^16.4.5"
   },
   "engines": {
     "node": ">=18.0.0"
