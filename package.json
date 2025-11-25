@@ -1,16 +1,17 @@
 {
   "name": "naughty-bot-jjm",
   "version": "1.0.0",
-  "description": "A Discord bot for viewing images.",
+  "description": "Naughty Bot",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "ls -R && node index.js",
-    "deploy": "node deploy-commands.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "discord.js": "^14.15.2",
-    "dotenv": "^16.4.5",
-    "node-fetch": "^3.3.2"
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
