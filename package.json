@@ -1,5 +1,5 @@
 {
-  "name": "osint-bot",
+  "name": "image-search-bot",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -9,8 +9,5 @@
     "axios": "^1.6.0",
     "discord.js": "^14.14.0",
     "dotenv": "^16.3.1"
-  },
-  "engines": {
-    "node": ">=16.9.0"
   }
 }
