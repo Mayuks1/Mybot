@@ -1,6 +1,7 @@
 {
-  "name": "ai-art-bot",
-  "version": "1.0.0",
+  "name": "ai-art-bot-pro",
+  "version": "2.0.0",
+  "description": "Professional AI Art and Search Bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
