@@ -4,7 +4,6 @@ import os
 import asyncio
 import logging
 
-# Setup logging (Professional practice for debugging in Zeabur logs)
 logging.basicConfig(level=logging.INFO)
 
 class MyBot(commands.Bot):
@@ -16,28 +15,30 @@ class MyBot(commands.Bot):
         )
 
     async def setup_hook(self):
-        # Load the extension (cog)
-        try:
-            await self.load_extension("image_cog")
-            # Sync slash commands
-            await self.tree.sync()
-            logging.info("✅ Commands Synced!")
-        except Exception as e:
-            logging.error(f"Failed to load extension: {e}")
+        # Load BOTH extensions
+        initial_extensions = ["image_cog", "search_cog"]
+        
+        for extension in initial_extensions:
+            try:
+                await self.load_extension(extension)
+                logging.info(f"✅ Loaded {extension}")
+            except Exception as e:
+                logging.error(f"❌ Failed to load {extension}: {e}")
+
+        await self.tree.sync()
+        logging.info("✅ Slash Commands Synced Globaly!")
 
     async def on_ready(self):
         logging.info(f"🚀 Logged in as {self.user} (ID: {self.user.id})")
         await self.change_presence(activity=discord.Activity(
             type=discord.ActivityType.watching, 
-            name="/imagine"
+            name="/imagine & /search"
         ))
 
 async def main():
-    # Get token from Zeabur Environment Variable
     token = os.getenv("DISCORD_TOKEN")
-    
     if not token:
-        logging.error("❌ ERROR: DISCORD_TOKEN is missing in Environment Variables!")
+        logging.error("❌ DISCORD_TOKEN is missing!")
         return
 
     bot = MyBot()
